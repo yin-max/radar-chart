@@ -7,9 +7,9 @@
 
 <script setup>
 import RadarChart from './components/RadarChart.vue'
-// import RadarChart from './components/temp2.vue'
-// import RadarChart from './components/temp.vue'
 // import RadarChart from './components/temp3.vue'
+// import RadarChart from './components/RadarEChart.vue'
+// import RadarChart from './components/temp.vue'
 </script>
 
 <style scoped>
