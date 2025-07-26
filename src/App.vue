@@ -1,6 +1,6 @@
 <template>
   <div id="app">
-    <h1>model performance</h1>
+    <!-- <h1>model performance</h1> -->
     <RadarChart />
   </div>
 </template>
@@ -15,7 +15,7 @@ import RadarChart from './components/RadarChart.vue'
 <style scoped>
 .container {
   max-width: 1200px;
-  margin: 1rem auto;
+  margin: 0rem auto;
   font-family: system-ui, sans-serif;
 }
 </style>
