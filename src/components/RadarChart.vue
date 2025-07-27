@@ -155,8 +155,8 @@ const labelImageMap = computed(() => {
     // Use lowercase and remove spaces for image filenames
     const imageName = label.toLowerCase().replace(/\s+/g, '') + '.png';
     // Images at /icons/<label>.png
-    // map[label] = `/icons/${imageName}`; // public 好像不用写? 但是不加上又无法显示
-    map[label] = `public/icons/${imageName}`;
+    map[label] = `./icons/${imageName}`; // public 好像不用写? 但是不加上又无法显示
+    // map[label] = `public/icons/${imageName}`;
   });
   return map;
 });
