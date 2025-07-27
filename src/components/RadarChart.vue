@@ -35,9 +35,12 @@
           <!-- ✅ 动态复选框 -->
           <div class="model-columns">
             <div v-for="(column, colIndex) in modelColumns" :key="colIndex" class="column">
-              <label v-for="name in column" :key="name" class="checkbox">
+              <label v-for="name in column" :key="name" class="checkbox" :class="{ selected: selectedModels.includes(name) }" :style="{ borderColor: selectedModels.includes(name) ? modelColors[name] || '#ccc' : 'transparent' }" :title="name">
+              <!-- <label v-for="name in column" :key="name" class="checkbox" :class="{ selected: selectedModels.includes(name) }" :style="{ borderColor: selectedModels.includes(name) ? modelColors[name] || '#ccc' : 'transparent' }"> -->
+              <!-- <label v-for="name in column" :key="name" class="checkbox"> -->
+                <!-- <span class="color-indicator" :style="{ backgroundColor: modelColors[name] || '#ccc' }"></span> -->
                 <input type="checkbox" :value="name" v-model="selectedModels" :aria-label="`Select model ${name}`" />
-                {{ name }}
+                <span class="model-name">{{ name }}</span>
               </label>
             </div>
           </div>
@@ -88,7 +91,7 @@ const chartHeight = ref('650px') // 图表高度（支持像素、vh等）
 function generateColors(n) {
   return Array.from({ length: n }, (_, i) =>
     `hsl(${Math.round((360 / n) * i)}, 70%, 60%)`
-  )
+  );
 }
 
 // function csvToJson(csv) {
@@ -112,8 +115,8 @@ function csvToJson(csv) {
     if (!_lbls.length) throw new Error('No labels found in CSV');
     const modelData = {};
     for (let i = 1; i < lines.length; i++) {
-      const cols = lines[i].split(',')
-      if (cols.length !== _lbls.length + 1) throw new Error(`Invalid row format at line ${i + 1}`)
+      const cols = lines[i].split(',');
+      if (cols.length !== _lbls.length + 1) throw new Error(`Invalid row format at line ${i + 1}`);
       const values = cols.slice(1).map(val => {
         const num = Number(val);
         // if (isNaN(num)) throw new Error(`Non-numeric value "${val}" in row ${i + 1}`);
@@ -173,7 +176,16 @@ const modelColumns = computed(() => {
   return columns;
 });
 
-/* ---------- 6. 加载 CSV 文件 -------- */
+/* ---------- 6. 模型颜色映射 -------- */
+const modelColors = computed(() => {
+  const colorsMap = {};
+  datasets.value.forEach(ds => {
+    colorsMap[ds.label] = ds.borderColor;
+  });
+  return colorsMap;
+});
+
+/* ---------- 7. 加载 CSV 文件 -------- */
 onMounted(async () => {
   try {
     // 使用 Vite 的 import.meta.glob 动态加载 CSV 文件
@@ -303,7 +315,7 @@ onUnmounted(() => {
   }
 });
 
-/* ---------- 7. 计算图表数据（随CSV和模型选择变化） -------- */
+/* ---------- 8. 计算图表数据（随CSV和模型选择变化） -------- */
 const chartData = computed(() => {
   if (!selectedCsv.value || !csvData.value[selectedCsv.value]) {
     console.warn('No data for chartData');
@@ -341,7 +353,7 @@ const chartData = computed(() => {
   const chartLabels = labels.value.length > 0
     ? [labels.value[0], ...labels.value.slice(1).reverse()]
     : [];
-  console.log('chartLabels: ', chartLabels, 'original: ', [...labels.value])
+  console.log('chartLabels: ', chartLabels, 'original: ', [...labels.value]);
   const selectedDatasets = datasets.value
     .filter(ds => selectedModels.value.includes(ds.label))
     .map((ds, i) => {
@@ -368,14 +380,14 @@ const chartData = computed(() => {
   return chartDataObject;
 });
 
-/* ---------- 8. 图表配置 -------- */
+/* ---------- 9. 图表配置 -------- */
 const chartOptions = computed(() => {
-  const width = chartRef.value?.chart?.width || parseInt(chartWidth.value) || 700
-  const fontSize = Math.max(10, Math.min(14, width / 40))
-  const padding = width / 6 // 增加内边距以容纳图片
+  const width = chartRef.value?.chart?.width || parseInt(chartWidth.value) || 700;
+  const fontSize = Math.max(10, Math.min(14, width / 40));
+  const padding = width / 6; // 增加内边距以容纳图片
   // const padding = 200; // 增加内边距以容纳图片
-  const imageSize = Math.max(20, width / 15) // 调整图片大小
-  const extraOffset = imageSize * 0.5 + 20 // 图片与标签额外间距
+  const imageSize = Math.max(20, width / 15); // 调整图片大小
+  const extraOffset = imageSize * 0.5 + 20; // 图片与标签额外间距
 
   return {
     responsive: true,
@@ -415,9 +427,9 @@ const chartOptions = computed(() => {
             // 只显示当前悬停的数据点
             if (ctx.datasetIndex === hoveredDatasetIndex.value && ctx.dataIndex === hoveredDataIndex.value) {
               const value = Number(ctx.raw).toFixed(4) // 四舍五入到4位小数
-              const label = `${ctx.chart.data.labels[ctx.dataIndex]}: ${value}`
-              console.log('Tooltip:', label)
-              return label
+              const label = `${ctx.chart.data.labels[ctx.dataIndex]}: ${value}`;
+              console.log('Tooltip:', label);
+              return label;
             }
             return '';
           }
@@ -456,7 +468,7 @@ const chartOptions = computed(() => {
 
             hoveredDatasetIndex.value = closestDatasetIndex;
             hoveredDataIndex.value = null; // 无数据点索引，因为线条悬停不触发tooltip
-            console.log('Line hover dataset:', closestDatasetIndex)
+            console.log('Line hover dataset:', closestDatasetIndex);
           }
         }
       },
@@ -489,8 +501,8 @@ const chartOptions = computed(() => {
               const deg = rad * 180 / Math.PI;
               let imageX, imageY;
 
-              imageX = x + Math.cos(rad) * (textWidth + padding * 4) - imageSize / 2;
-              imageY = y + 1.2 * Math.sin(rad) * (padding * 4) - imageSize / 2 + Math.abs(Math.cos(rad)) * 20;
+              imageX = x + 1.0 * Math.cos(rad) * (textWidth + padding * 5) - imageSize / 2;
+              imageY = y + 1.2 * Math.sin(rad) * (padding * 4) - imageSize / 2 + Math.abs(Math.cos(rad)) * 30;
 
               // 限制图片在画布边界内
               imageX = Math.max(0, Math.min(canvas.width - imageSize, imageX));
@@ -498,14 +510,14 @@ const chartOptions = computed(() => {
 
               ctx.drawImage(img, imageX, imageY, imageSize, imageSize);
               console.log('image:', img, 'x:', x, 'y:', y, 'imageX:', imageX, 'imageY:', imageY, 'Size:', imageSize,
-                'textAlign:', textAlign, 'radian:', rad, 'degree:', deg)
+                'textAlign:', textAlign, 'radian:', rad, 'degree:', deg);
             }
           });
         }
       }
     },
     onHover: (event, chartElements) => {
-      console.log('Hover elements:', chartElements)
+      console.log('Hover elements:', chartElements);
       if (chartElements.length > 0) {
         const datasetIndex = chartElements[0].datasetIndex;
         const dataIndex = chartElements[0].index;
@@ -519,7 +531,7 @@ const chartOptions = computed(() => {
   };
 });
 
-/* ---------- 9. 模型全选/取消全选逻辑 -------- */
+/* ---------- 10. 模型全选/取消全选逻辑 -------- */
 const isAllModelsSelected = computed(() =>
   selectedModels.value.length === modelNames.value.length
 );
@@ -528,7 +540,7 @@ function toggleAllModels() {
   selectedModels.value = isAllModelsSelected.value ? [] : [...modelNames.value];
 }
 
-/* ---------- 10. 注册自定义插件 -------- */
+/* ---------- 11. 注册自定义插件 -------- */
 ChartJS.register({
   id: 'pointLabelImages',
   afterDraw: chartOptions.value.plugins.pointLabelImages.afterDraw
@@ -538,7 +550,7 @@ ChartJS.register({
   // //加上这段使得悬停无法高亮, 悬停并点击才能高亮
 });
 
-/* ---------- 11. 计算点到线段距离 -------- */
+/* ---------- 12. 计算点到线段距离 -------- */
 function pointToLineDistance(px, py, x1, y1, x2, y2) {
   const dx = x2 - x1;
   const dy = y2 - y1;
@@ -628,11 +640,53 @@ function pointToLineDistance(px, py, x1, y1, x2, y2) {
 }
 
 .checkbox {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
   margin: 0.3rem 0;
   cursor: pointer;
+  white-space: nowrap; /* 防止模型名称换行 */
+  padding: 0.2rem 0.5rem;
+  border: 5px solid transparent;
+  border-radius: 4px;
+  position: relative;
+}
+
+.checkbox input[type="checkbox"] {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+  appearance: none; /* Remove browser-specific styling */
+  -webkit-appearance: none;
+  -moz-appearance: none;
+}
+
+.checkbox.selected {
+  border-color: inherit; /* Uses the borderColor from :style */
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+/* .checkbox.selected::before {
+  content: '✓';
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  font-size: 10px;
+  line-height: 12px;
+  text-align: center;
+  color: white;
+  background-color: v-bind('modelColors[name] || "#ccc"');
+  border-radius: 2px;
+  margin-right: 0.3rem;
+} */
+
+.model-name {
+  display: block;
+  max-width: 150px;
   white-space: nowrap;
-  /* 防止模型名称换行 */
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .toggle-btn {
@@ -699,8 +753,20 @@ function pointToLineDistance(px, py, x1, y1, x2, y2) {
   }
 
   .checkbox {
-    font-size: 0.8rem;
-    /* 缩小字体 */
+    font-size: 0.8rem; /* 缩小字体 */
+    padding: 0.15rem 0.4rem;
+    border-width: 1px;
+  }
+
+  .checkbox.selected::before {
+    width: 10px;
+    height: 10px;
+    font-size: 8px;
+    line-height: 10px;
+  }
+
+  .model-name {
+    max-width: 120px;
   }
 
   .toggle-btn {
