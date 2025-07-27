@@ -85,7 +85,24 @@ const hoverBorderWidth = ref(6) // 悬停时线条粗细
 const chartWidth = ref('100%') // 图表宽度（支持像素、百分比、vw等）
 const chartHeight = ref('650px') // 图表高度（支持像素、vh等）
 
+/* Custom CSV order */
+const preferredCsvOrder = ref([
+  'm6A.csv',
+  'ψ.csv',
+  'm5C.csv',
+  'AtoI.csv',
+  'm7G.csv',
+  'm1A.csv',
+  // Add other CSV filenames in desired order
+]);
 
+/* Chart background color based on color scheme */
+// const chartBackgroundColor = computed(() => {
+//   return window.matchMedia('(prefers-color-scheme: dark)').matches ? '#1a1a1a' : '#ffffff';
+// });
+
+/* Chart background color (always white) */
+const chartBackgroundColor = ref('#ffffff');
 
 /* ---------- 2. 工具函数 -------- */
 function generateColors(n) {
@@ -191,9 +208,19 @@ onMounted(async () => {
     // 使用 Vite 的 import.meta.glob 动态加载 CSV 文件
     console.log('Starting onMounted');
     const modules = import.meta.glob('/public/*.csv', { as: 'raw', eager: true });
-    csvFiles.value = Object.keys(modules).map(file => file.split('/').pop());
+    const availableFiles = Object.keys(modules).map(file => file.split('/').pop());
+    console.log('Available CSV files:', availableFiles);
+
+    // Sort files based on preferredCsvOrder, with unspecified files appended alphabetically
+    const orderedFiles = [
+      ...preferredCsvOrder.value.filter(file => availableFiles.includes(file)),
+      ...availableFiles
+        .filter(file => !preferredCsvOrder.value.includes(file))
+        .sort((a, b) => a.localeCompare(b))
+    ];
+    csvFiles.value = orderedFiles;
     selectedCsv.value = csvFiles.value[0] || null; // 默认选中第一个文件
-    console.log('CSV files:', csvFiles.value);
+    console.log('Ordered CSV files:', csvFiles.value);
 
     if (!selectedCsv.value) {
       throw new Error('No CSV files found in public/');
@@ -401,7 +428,8 @@ const chartOptions = computed(() => {
         // beginAtZero: true,
         min: -0.25, // 圆心为 -0.25，最内圈为 0
         max: 1, // 外圈为 1
-        grid: { circular: true },
+        // grid: { circular: true },
+        grid: { circular: false }, /* Changed to polylines */
         pointLabels: {
           font: { size: fontSize },
           padding: 0  // label 位置
@@ -433,6 +461,16 @@ const chartOptions = computed(() => {
             }
             return '';
           }
+        }
+      },
+      background: {
+        id: 'background',
+        beforeDraw: (chart) => {
+          const { ctx, width, height } = chart;
+          ctx.save();
+          ctx.fillStyle = chartBackgroundColor.value;
+          ctx.fillRect(0, 0, width, height);
+          ctx.restore();
         }
       },
       lineHoverPlugin: {
@@ -548,6 +586,9 @@ ChartJS.register({
   //   id: 'lineHoverPlugin',
   //   beforeEvent: chartOptions.plugins.lineHoverPlugin.beforeEvent
   // //加上这段使得悬停无法高亮, 悬停并点击才能高亮
+}, {
+  id: 'background',
+  beforeDraw: chartOptions.value.plugins.background.beforeDraw
 });
 
 /* ---------- 12. 计算点到线段距离 -------- */
@@ -573,6 +614,7 @@ function pointToLineDistance(px, py, x1, y1, x2, y2) {
   max-width: 1200px;
   margin: 0 auto;
   padding: 1rem;
+  background-color: white; /* Light mode background */
 }
 
 .wrapper {
@@ -706,10 +748,47 @@ function pointToLineDistance(px, py, x1, y1, x2, y2) {
   text-align: center;
 }
 
+/* Dark mode styles */
+@media (prefers-color-scheme: dark) {
+  .container {
+    /* Dark mode background */
+    /* background-color: #1a1a1a; */
+    color: #e0e0e0; /* Light text for contrast */
+  }
+
+  .filters fieldset {
+    border-color: #555; /* Lighter border for dark mode */
+  }
+
+  .filters legend {
+    color: #e0e0e0; /* Light text for legend */
+  }
+
+  .checkbox {
+    color: #e0e0e0; /* Light text for labels */
+  }
+
+  .checkbox.selected {
+    background-color: rgba(255, 255, 255, 0.1); /* Slightly lighter background for selected */
+  }
+
+  .toggle-btn {
+    background-color: #333; /* Darker button background */
+    border-color: #555; /* Lighter border */
+    color: #e0e0e0; /* Light text */
+  }
+
+  .error {
+    color: #ff5555; /* Brighter red for visibility */
+  }
+}
+
 /* 响应式设计：小屏幕 */
 @media (max-width: 768px) {
   .container {
     padding: 0.5rem;
+    /* Ensure white background on small screens */
+    background-color: white; 
   }
 
   .wrapper {
@@ -772,6 +851,41 @@ function pointToLineDistance(px, py, x1, y1, x2, y2) {
   .toggle-btn {
     padding: 0.15rem 0.3rem;
     font-size: 0.75rem;
+  }
+
+  /* Dark mode styles for small screens */
+  @media (prefers-color-scheme: dark) {
+    .container {
+      /* Dark mode background */
+      /* background-color: #1a1a1a; */
+      color: #e0e0e0;
+    }
+
+    .filters fieldset {
+      border-color: #555;
+    }
+
+    .filters legend {
+      color: #e0e0e0;
+    }
+
+    .checkbox {
+      color: #e0e0e0;
+    }
+
+    .checkbox.selected {
+      background-color: rgba(255, 255, 255, 0.1);
+    }
+
+    .toggle-btn {
+      background-color: #333;
+      border-color: #555;
+      color: #e0e0e0;
+    }
+
+    .error {
+      color: #ff5555;
+    }
   }
 }
 </style>
