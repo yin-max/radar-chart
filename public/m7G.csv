@@ -1,9 +1,0 @@
-,AUROC,AUPRC,Distribution similarity with ground-truth,Differen between KO and WT,Replicates correlation,Replicates overlap,Sequencing depth bias,Motification level bias,Speed,Memory efficiency
-Max,1,1,1,1,1,1,1,1,1,1
-Min,0,0,0,0,0,0,0,0,0,0
-NanoSPA-retrain,0.35,0,0.555,0.518,0.32,0.392,0.982,0.614,1,0.972057942805809
-m6Anet-retrain,0.46,0,0.34,0.442,0.93,0.439,0.9996,0.9976,0.788593430393454,0.831823626291361
-TandemMod,0.35,0.05,0.587,0.004,0.6133,0.31,1,1,0.712790277944892,0.825516544392873
-DinoPORE-retrain,0.35,0.02,0.465,0.459,0.52,0.436,0.999,0.988,0.900854289495849,0
-SingleMod-retrain,0.53,0,0.417,0.512,0.48,0.386,0,0,0,1
-Epinano-retrain,0.4,0,0.543,0.102,0.33,0.365,0.9998,0.9995,0.427987005173866,0.964815092079653
