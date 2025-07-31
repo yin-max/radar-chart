@@ -204,9 +204,10 @@ function generateColors(n, modelNames) {
 /* ---------- 3. 标签到图片的映射 -------- */
 const labelImageMap = computed(() => {
   const map = {};
+  const imagePath = '/icons';
   labels.value.forEach(label => {
     const imageName = label.toLowerCase().replace(/\s+/g, '') + '.png';
-    map[label] = `./icons/${imageName}`;
+    map[label] = `${imagePath}/${imageName}`;
   });
   return map;
 });
@@ -256,27 +257,18 @@ const modelColors = computed(() => {
 onMounted(async () => {
   try {
     console.log('Starting onMounted');
-    const publicPath = import.meta.env.DEV ? '/public' : '';
-    const modules = import.meta.glob('/public/SQK-RNA*/*.csv', { as: 'raw', eager: true });
-    const availableFiles = Object.keys(modules).map(file => file.replace('/public/', ''));
-
-    const kits = [...new Set(availableFiles.map(file => file.split('/')[0]))]
-      .filter(kit => kit.startsWith('SQK-RNA'))
-      .sort();
+    // 预定义的 Kit 和 CSV 文件列表（可通过服务器 API 动态获取）
+    const kits = ['SQK-RNA002', 'SQK-RNA004'];
     kitOptions.value = kits;
     selectedKit.value = kits[0] || null;
     console.log('Available kits:', kits);
 
     if (!selectedKit.value) {
-      throw new Error('No SQK-RNA* folders found in public/');
+      throw new Error('No SQK-RNA* folders found');
     }
 
-    updateCsvFiles();
-    for (const file of availableFiles) {
-      csvData.value[file] = csvToJson(modules[`${publicPath}/${file}`]);
-    }
-
-    loadCsvData(selectedCsv.value);
+    await updateCsvFiles();
+    await loadCsvData(selectedCsv.value);
     preloadImages(labelImageMap.value);
     console.log('Label image map:', labelImageMap.value);
     ready.value = true;
@@ -298,75 +290,92 @@ onMounted(async () => {
 });
 
 /* 更新 CSV 文件列表 */
-function updateCsvFiles() {
-  const publicPath = import.meta.env.DEV ? '/public' : '';
-  const modules = import.meta.glob('/public/SQK-RNA*/*.csv', { as: 'raw', eager: true });
-  const availableFiles = Object.keys(modules).map(file => file.replace('/public/', ''));
-  const kitFiles = availableFiles
-    .filter(file => file.startsWith(`${selectedKit.value}/`))
-    .map(file => file.split('/')[1])
-    .sort((a, b) => {
-      const indexA = preferredCsvOrder.value.indexOf(a);
-      const indexB = preferredCsvOrder.value.indexOf(b);
-      if (indexA === -1 && indexB === -1) return a.localeCompare(b);
-      if (indexA === -1) return 1;
-      if (indexB === -1) return -1;
-      return indexA - indexB;
-    });
-  csvFiles.value = kitFiles;
-  selectedCsv.value = kitFiles[0] || null;
-  console.log('CSV files for', selectedKit.value, ':', kitFiles);
+async function updateCsvFiles() {
+  try {
+    // 假设 CSV 文件列表已知，也可通过 API 获取
+    const kitFiles = preferredCsvOrder.value.filter(csv =>
+      ['m6A.csv', 'ψ.csv'].includes(csv) // 根据实际文件调整
+    );
+    csvFiles.value = kitFiles;
+    selectedCsv.value = kitFiles[0] || null;
+    console.log('CSV files for', selectedKit.value, ':', kitFiles);
+
+    // 预加载所有 CSV 文件
+    for (const csv of kitFiles) {
+      const filePath = `${selectedKit.value}/${csv}`;
+      if (!csvData.value[filePath]) {
+        const response = await fetch(`/data/${filePath}`);
+        if (!response.ok) {
+          console.warn(`Failed to fetch ${filePath}: ${response.statusText}`);
+          continue;
+        }
+        const text = await response.text();
+        csvData.value[filePath] = csvToJson(text);
+      }
+    }
+  } catch (error) {
+    console.error('Error updating CSV files:', error);
+    csvFiles.value = [];
+    selectedCsv.value = null;
+  }
 }
 
 /* 加载 CSV 数据并按总和排序 */
-function loadCsvData(csvFile) {
+async function loadCsvData(csvFile) {
   if (!csvFile) return;
   const filePath = `${selectedKit.value}/${csvFile}`;
-  if (!csvData.value[filePath]) {
-    throw new Error(`Data for ${filePath} not found in cache`);
+  try {
+    if (!csvData.value[filePath]) {
+      const response = await fetch(`/data/${filePath}`);
+      if (!response.ok) throw new Error(`Failed to fetch ${filePath}`);
+      const text = await response.text();
+      csvData.value[filePath] = csvToJson(text);
+    }
+    const { labels: _lbls, data: modelData, sortData } = csvData.value[filePath];
+
+    // 计算每个模型的指标总和（NA 视为 0）
+    const modelSums = Object.entries(sortData)
+      .filter(([name]) => !name.includes('Max') && !name.includes('Min'))
+      .map(([name, values]) => ({
+        name,
+        sum: values.reduce((acc, val) => acc + val, 0)
+      }))
+      .sort((a, b) => b.sum - a.sum);
+
+    const sortedModelNames = modelSums.map(({ name }) => name);
+    const colors = generateColors(sortedModelNames.length, sortedModelNames);
+
+    labels.value = _lbls;
+    datasets.value = sortedModelNames.map((name, i) => ({
+      label: name,
+      data: modelData[name],
+      borderColor: colors[i],
+      backgroundColor: colors[i].replace('hsl', 'hsla').replace(')', ', 0.2)'),
+      pointBackgroundColor: colors[i],
+      borderWidth: borderWidth.value,
+      pointRadius: pointRadius.value,
+      pointHoverRadius: pointHoverRadius.value,
+      hoverBorderWidth: hoverBorderWidth.value,
+      fill: true,
+      pointHitRadius: 10,
+      originalBorderColor: colors[i],
+      originalBackgroundColor: colors[i].replace('hsl', 'hsla').replace(')', ', 0.2)')
+    }));
+    modelNames.value = sortedModelNames;
+    selectedModels.value = sortedModelNames;
+    console.log('Data loaded for', filePath, { labels: _lbls, datasets: sortedModelNames, sums: modelSums });
+  } catch (error) {
+    throw new Error(`Failed to load ${filePath}: ${error.message}`);
   }
-  const { labels: _lbls, data: modelData, sortData } = csvData.value[filePath];
-
-  // 计算每个模型的指标总和（NA 视为 0）
-  const modelSums = Object.entries(sortData)
-    .filter(([name]) => !name.includes('Max') && !name.includes('Min'))
-    .map(([name, values]) => ({
-      name,
-      sum: values.reduce((acc, val) => acc + val, 0)
-    }))
-    .sort((a, b) => b.sum - a.sum);
-
-  const sortedModelNames = modelSums.map(({ name }) => name);
-  const colors = generateColors(sortedModelNames.length, sortedModelNames);
-
-  labels.value = _lbls;
-  datasets.value = sortedModelNames.map((name, i) => ({
-    label: name,
-    data: modelData[name],
-    borderColor: colors[i],
-    backgroundColor: colors[i].replace('hsl', 'hsla').replace(')', ', 0.2)'),
-    pointBackgroundColor: colors[i],
-    borderWidth: borderWidth.value,
-    pointRadius: pointRadius.value,
-    pointHoverRadius: pointHoverRadius.value,
-    hoverBorderWidth: hoverBorderWidth.value,
-    fill: true,
-    pointHitRadius: 10,
-    originalBorderColor: colors[i],
-    originalBackgroundColor: colors[i].replace('hsl', 'hsla').replace(')', ', 0.2)')
-  }));
-  modelNames.value = sortedModelNames;
-  selectedModels.value = sortedModelNames;
-  console.log('Data loaded for', filePath, { labels: _lbls, datasets: sortedModelNames, sums: modelSums });
 }
 
 /* 监听 Kit 切换 */
-watch(selectedKit, () => {
+watch(selectedKit, async () => {
   try {
     errorMessage.value = null;
     ready.value = false;
-    updateCsvFiles();
-    loadCsvData(selectedCsv.value);
+    await updateCsvFiles();
+    await loadCsvData(selectedCsv.value);
     preloadImages(labelImageMap.value);
     ready.value = true;
     if (chartRef.value?.chart) {
@@ -380,11 +389,11 @@ watch(selectedKit, () => {
 });
 
 /* 监听 CSV 切换 */
-watch(selectedCsv, (newCsv) => {
+watch(selectedCsv, async (newCsv) => {
   try {
     errorMessage.value = null;
     ready.value = false;
-    loadCsvData(newCsv);
+    await loadCsvData(newCsv);
     preloadImages(labelImageMap.value);
     ready.value = true;
     if (chartRef.value?.chart) {

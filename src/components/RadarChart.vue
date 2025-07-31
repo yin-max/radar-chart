@@ -2,57 +2,6 @@
   <div v-if="errorMessage" class="error" role="alert">{{ errorMessage }}</div>
   <div v-else-if="!ready">Loading...</div>
   <div v-else class="container">
-    <!-- ② Kit 选择区域、CSV 文件选择区域和模型选择区域 -->
-    <div class="filters-container">
-      <!-- Kit 选择区域 -->
-      <div class="filters">
-        <fieldset>
-          <legend>Kit version</legend>
-          <label v-for="kit in kitOptions" :key="kit" class="checkbox" :class="{ selected: selectedKit === kit }" :style="{ borderColor: selectedKit === kit ? '#000000' : 'transparent', color: selectedKit === kit ? '#000000' : '#585858' }">
-            <input type="radio" :value="kit" v-model="selectedKit" name="kit-selection" :aria-label="`Select kit ${kit}`" />
-            {{ kit }}
-          </label>
-        </fieldset>
-      </div>
-
-      <!-- CSV 文件选择区域 -->
-      <div class="filters">
-        <fieldset>
-          <legend>RNA modifications</legend>
-          <!-- 使用单选按钮选择单个CSV文件，显示时去掉 .csv 后缀 -->
-          <label v-for="csv in csvFiles" :key="csv" class="checkbox" :class="{ selected: selectedCsv === csv }" :style="{ borderColor: selectedCsv === csv ? '#000000' : 'transparent', color: selectedCsv === csv ? '#000000' : '#585858' }">
-            <input type="radio" :value="csv" v-model="selectedCsv" name="csv-selection" :aria-label="`Select CSV ${csv.replace('.csv', '')}`" />
-            {{ csv.replace('.csv', '') }}
-          </label>
-        </fieldset>
-      </div>
-
-      <!-- 模型选择区域 -->
-      <div class="filters">
-        <fieldset>
-          <!-- 🔘 一键切换按钮 -->
-          <legend>
-            Models
-            <button @click="toggleAllModels" class="toggle-btn" :aria-label="isOneModelSelected ? 'Clear all models' : 'Select all models'">
-              {{ isOneModelSelected ? 'Clear' : 'All' }}
-            </button>
-          </legend>
-          <!-- ✅ 动态复选框 -->
-          <div class="model-columns">
-            <div v-for="(column, colIndex) in modelColumns" :key="colIndex" class="column">
-              <!-- <label v-for="name in column" :key="name" class="checkbox" :class="{ selected: selectedModels.includes(name) }" :style="{ backgroundColor: selectedModels.includes(name) ? modelColors[name] || '#ccc' : 'transparent' }" :title="name"> -->
-              <label v-for="name in column" :key="name" class="checkbox" :class="{ selected: selectedModels.includes(name) }" :style="{ backgroundColor: selectedModels.includes(name) ? modelColors[name] || '#ccc' : 'transparent', textShadow: selectedModels.includes(name) ? '1px 1px 2px rgba(0, 0, 0, 0.5)' : 'none' }" :title="name">
-              <!-- <label v-for="name in column" :key="name" class="checkbox"> -->
-                <!-- <span class="color-indicator" :style="{ backgroundColor: modelColors[name] || '#ccc' }"></span> -->
-                <input type="checkbox" :value="name" v-model="selectedModels" :aria-label="`Select model ${name}`" />
-                <span class="model-name" :style="{ color: selectedModels.includes(name) ? '#ffffff' : modelColors[name] || '#ccc' }">{{ name }}</span>
-              </label>
-            </div>
-          </div>
-        </fieldset>
-      </div>
-    </div>
-
     <!-- ① 雷达图 -->
     <div class="wrapper">
       <div class="chart-box">
@@ -60,6 +9,44 @@
       </div>
     </div>
 
+    <!-- ② CSV文件选择区域和模型选择区域 -->
+    <div class="filters-container">
+      <div class="filters">
+        <fieldset>
+          <legend>RNA modifications</legend>
+          <!-- 使用单选按钮选择单个CSV文件，显示时去掉 .csv 后缀 -->
+          <label v-for="csv in csvFiles" :key="csv" class="checkbox">
+            <input type="radio" :value="csv" v-model="selectedCsv" name="csv-selection" :aria-label="`Select CSV ${csv.replace('.csv', '')}`" />
+            {{ csv.replace('.csv', '') }}
+          </label>
+        </fieldset>
+      </div>
+
+      <!-- ② 模型选择区域 -->
+      <div class="filters">
+        <fieldset>
+          <!-- 🔘 一键切换按钮 -->
+          <legend>
+            Models
+            <button @click="toggleAllModels" class="toggle-btn" :aria-label="isAllModelsSelected ? 'Clear all models' : 'Select all models'">
+              {{ isAllModelsSelected ? 'Clear' : 'All' }}
+            </button>
+          </legend>
+          <!-- ✅ 动态复选框 -->
+          <div class="model-columns">
+            <div v-for="(column, colIndex) in modelColumns" :key="colIndex" class="column">
+              <label v-for="name in column" :key="name" class="checkbox" :class="{ selected: selectedModels.includes(name) }" :style="{ borderColor: selectedModels.includes(name) ? modelColors[name] || '#ccc' : 'transparent' }" :title="name">
+              <!-- <label v-for="name in column" :key="name" class="checkbox" :class="{ selected: selectedModels.includes(name) }" :style="{ borderColor: selectedModels.includes(name) ? modelColors[name] || '#ccc' : 'transparent' }"> -->
+              <!-- <label v-for="name in column" :key="name" class="checkbox"> -->
+                <!-- <span class="color-indicator" :style="{ backgroundColor: modelColors[name] || '#ccc' }"></span> -->
+                <input type="checkbox" :value="name" v-model="selectedModels" :aria-label="`Select model ${name}`" />
+                <span class="model-name">{{ name }}</span>
+              </label>
+            </div>
+          </div>
+        </fieldset>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -78,95 +65,25 @@ ChartJS.register(
 );
 
 /* ---------- 1. 状态 --------- */
-const ready = ref(false);
-const errorMessage = ref(null);
-const kitOptions = ref([]); // Kit 文件夹列表（SQK-RNA002, SQK-RNA004 等）
-const selectedKit = ref(null); // 当前选中的 Kit
-const csvFiles = ref([]); // 当前 Kit 下的 CSV 文件列表
-const selectedCsv = ref(null); // 当前选中的 CSV 文件
-const csvData = ref({}); // 缓存所有 CSV 文件的数据
-const labels = ref([]); // 当前选中的 CSV 文件的指标
-const datasets = ref([]); // 当前选中的 CSV 文件的模型数据集
-const modelNames = ref([]); // 当前选中的 CSV 文件的模型名称数组
-const selectedModels = ref([]); // 当前选中的模型
-const hoveredDatasetIndex = ref(null); // 当前高亮的 dataset 索引
-const hoveredDataIndex = ref(null); // 当前高亮的数据点索引
-const chartRef = ref(null); // 引用 Radar 组件
-const imageCache = ref({}); // 图片缓存
-const maxModelNumPerColumn = ref(6); // 每个列最多显示的模型数量
-const pointRadius = ref(2); // 默认点大小（像素）
-const pointHoverRadius = ref(4); // 悬停时点大小
-const borderWidth = ref(4); // 默认线条粗细
-const hoverBorderWidth = ref(6); // 悬停时线条粗细
-const chartWidth = ref('100%'); // 图表宽度
-const chartHeight = ref('650px'); // 图表高度
-const chartBackgroundColor = ref('#ffffff'); // 图表背景色
-
-/* HEX 到 HSL 转换函数 */
-function hexToHsl(hex) {
-  hex = hex.replace('#', '');
-  const r = parseInt(hex.slice(0, 2), 16) / 255;
-  const g = parseInt(hex.slice(2, 4), 16) / 255;
-  const b = parseInt(hex.slice(4, 6), 16) / 255;
-
-  const max = Math.max(r, g, b);
-  const min = Math.min(r, g, b);
-  let h, s, l = (max + min) / 2;
-
-  if (max === min) {
-    h = s = 0;
-  } else {
-    const d = max - min;
-    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
-    switch (max) {
-      case r: h = (g - b) / d + (g < b ? 6 : 0); break;
-      case g: h = (b - r) / d + 2; break;
-      case b: h = (r - g) / d + 4; break;
-    }
-    h /= 6;
-  }
-
-  h = Math.round(h * 360);
-  s = Math.round(s * 100);
-  l = Math.round(l * 100);
-  return `hsl(${h}, ${s}%, ${l}%)`;
-}
-
-/* 模型颜色映射（HSL 格式） */
-const modelColorMap = {
-  'm6Anet': hexToHsl('#2e3792'), // hsl(236, 54%, 38%)
-  'm6Anet-retrain': hexToHsl('#2e3792'), // hsl(236, 54%, 38%)
-  'EpiNano': hexToHsl('#8e5aa2'), // hsl(286, 32%, 49%)
-  'EpiNano-retrain': hexToHsl('#8e5aa2'), // hsl(286, 32%, 49%)
-  'SingleMod': hexToHsl('#f6c365'), // hsl(40, 89%, 67%)
-  'SingleMod-retrain': hexToHsl('#f6c365'), // hsl(40, 89%, 67%)
-  'NanoSPA': hexToHsl('#bc1932'), // hsl(351, 78%, 43%)
-  'NanoSPA-retrain': hexToHsl('#bc1932'), // hsl(351, 78%, 43%)
-  'TandemMod': hexToHsl('#9DCB62'), // hsl(90, 50%, 60%)
-  'TandemMod-retrain': hexToHsl('#9DCB62'), // hsl(90, 50%, 60%)
-  'Dinopore': hexToHsl('#F4B5CA'), // hsl(342, 77%, 83%)
-  'Dinopore-retrain': hexToHsl('#F4B5CA'), // hsl(342, 77%, 83%)
-  'Nanom6A': hexToHsl('#098889'), // hsl(181, 88%, 30%)
-  'ELIGOS': hexToHsl('#cca814'), // hsl(46, 83%, 44%)
-  'ELIGOS_diff': hexToHsl('#c5781a'), // hsl(33, 78%, 45%)
-  'MINES': hexToHsl('#7b5223'), // hsl(31, 55%, 31%)
-  'Epinano_delta': hexToHsl('#c896c8'), // hsl(300, 31%, 68%)
-  'CHEUI': hexToHsl('#6ab93c'), // hsl(101, 50%, 47%)
-  'Tombo': hexToHsl('#57217b'), // hsl(279, 57%, 30%)
-  'Tombo_com': hexToHsl('#b82373'), // hsl(325, 68%, 43%)
-  'DiffErr': hexToHsl('#cfe298'), // hsl(79, 57%, 72%)
-  'DRUMMER': hexToHsl('#d25a9c'), // hsl(326, 56%, 59%)
-  'xPore': hexToHsl('#5d96d0'), // hsl(211, 53%, 60%)
-  'Nanocompore': hexToHsl('#969696'), // hsl(0, 0%, 59%)
-  'DENA': hexToHsl('#a8d6b3'), // hsl(137, 35%, 75%)
-  'm6Aiso': hexToHsl('#f1881a'), // hsl(33, 89%, 52%)
-  'pum6A': hexToHsl('#129abf'), // hsl(193, 81%, 43%)
-  'NanoMUD': hexToHsl('#78862f'), // hsl(71, 50%, 34%)
-  'NanoRMS': hexToHsl('#4b4b4b'), // hsl(0, 0%, 29%)
-  'PsiNanopore': hexToHsl('#2a65b0'), // hsl(212, 60%, 43%)
-  'Xron': hexToHsl('#6affb9'), // hsl(155, 100%, 71%)
-  'Dorado': hexToHsl('#ef1fff'), // hsl(294, 100%, 56%)
-};
+const ready = ref(false) // 数据加载完成标记
+const errorMessage = ref(null)
+const csvFiles = ref([]) // 可用的CSV文件列表，动态获取
+const selectedCsv = ref(null) // 当前选中的CSV文件，初始为 null
+const csvData = ref({}) // 缓存所有CSV文件的数据
+const labels = ref([]) // 当前选中的CSV文件的指标
+const datasets = ref([]) // 当前选中的CSV文件的模型数据集
+const modelNames = ref([]) // 当前选中的CSV文件的模型名称数组
+const selectedModels = ref([]) // 当前选中的模型
+const hoveredDatasetIndex = ref(null) // 当前高亮的 dataset 索引
+const hoveredDataIndex = ref(null) // 当前高亮的数据点索引
+const chartRef = ref(null) // 引用 Radar 组件
+const imageCache = ref({}) // 图片缓存
+const pointRadius = ref(2) // 默认点大小（像素）
+const pointHoverRadius = ref(4) // 悬停时点大小
+const borderWidth = ref(4) // 默认线条粗细
+const hoverBorderWidth = ref(6) // 悬停时线条粗细
+const chartWidth = ref('100%') // 图表宽度（支持像素、百分比、vw等）
+const chartHeight = ref('650px') // 图表高度（支持像素、vh等）
 
 /* Custom CSV order */
 const preferredCsvOrder = ref([
@@ -179,19 +96,33 @@ const preferredCsvOrder = ref([
   // Add other CSV filenames in desired order
 ]);
 
+/* Chart background color based on color scheme */
+// const chartBackgroundColor = computed(() => {
+//   return window.matchMedia('(prefers-color-scheme: dark)').matches ? '#1a1a1a' : '#ffffff';
+// });
+
+/* Chart background color (always white) */
+const chartBackgroundColor = ref('#ffffff');
+
 /* ---------- 2. 工具函数 -------- */
-function generateColors(n, modelNames) {
-  const colors = [];
-  for (let i = 0; i < n; i++) {
-    const model = modelNames[i];
-    if (modelColorMap[model]) {
-      colors.push(modelColorMap[model]);
-    } else {
-      colors.push(`hsl(${Math.round((360 / n) * i)}, 70%, 60%)`);
-    }
-  }
-  return colors;
+function generateColors(n) {
+  return Array.from({ length: n }, (_, i) =>
+    `hsl(${Math.round((360 / n) * i)}, 70%, 60%)`
+  );
 }
+
+// function csvToJson(csv) {
+//   const lines = csv.trim().split('\n')
+//   // const _lbls = lines[0].split(',').slice(1).map(label => label.length > 15 ? label.slice(0, 12) + '...' : label)
+//   const _lbls = lines[0].split(',').slice(1)
+//   const modelData = {} // 避免与 chartData 中的变量冲突
+//   for (let i = 1; i < lines.length; i++) {
+//     const cols = lines[i].split(',')
+//     modelData[cols[0]] = cols.slice(1).map(Number)
+//   }
+//   return { labels: _lbls, data: modelData }
+// }
+
 
 function csvToJson(csv) {
   try {
@@ -200,7 +131,6 @@ function csvToJson(csv) {
     const _lbls = lines[0].split(',').slice(1).map(label => label.trim());
     if (!_lbls.length) throw new Error('No labels found in CSV');
     const modelData = {};
-    const sortData = {}; // 用于排序的数据，NA 转为 0
     for (let i = 1; i < lines.length; i++) {
       const cols = lines[i].split(',');
       if (cols.length !== _lbls.length + 1) throw new Error(`Invalid row format at line ${i + 1}`);
@@ -209,11 +139,9 @@ function csvToJson(csv) {
         // if (isNaN(num)) throw new Error(`Non-numeric value "${val}" in row ${i + 1}`);
         return num;
       });
-      const sortValues = cols.slice(1).map(val => val.trim() === 'NA' ? 0 : Number(val));
       modelData[cols[0].trim()] = values;
-      sortData[cols[0].trim()] = sortValues;
     }
-    return { labels: _lbls, data: modelData, sortData };
+    return { labels: _lbls, data: modelData };
   } catch (error) {
     throw new Error(`CSV parsing error: ${error.message}`);
   }
@@ -226,7 +154,9 @@ const labelImageMap = computed(() => {
   labels.value.forEach(label => {
     // Use lowercase and remove spaces for image filenames
     const imageName = label.toLowerCase().replace(/\s+/g, '') + '.png';
-    map[label] = `./icons/${imageName}`; // 生产环境中解析为 /icons/*.png
+    // Images at /icons/<label>.png
+    // map[label] = `/icons/${imageName}`; // public 好像不用写? 但是不加上又无法显示
+    map[label] = `public/icons/${imageName}`;
   });
   return map;
 });
@@ -254,11 +184,11 @@ function preloadImages(imageMap) {
 /* ---------- 5. 计算模型列 -------- */
 const modelColumns = computed(() => {
   const models = modelNames.value;
-  if (models.length <= maxModelNumPerColumn.value) return [models]; // 少于等于6个模型，单列
-  const columnCount = Math.ceil(models.length / maxModelNumPerColumn.value); // 每列最多6个模型
+  if (models.length <= 6) return [models]; // 少于等于6个模型，单列
+  const columnCount = Math.ceil(models.length / 6); // 每列最多6个模型
   const columns = [];
   for (let i = 0; i < columnCount; i++) {
-    columns.push(models.slice(i * maxModelNumPerColumn.value, (i + 1) * maxModelNumPerColumn.value));
+    columns.push(models.slice(i * 6, (i + 1) * 6));
   }
   return columns;
 });
@@ -277,33 +207,57 @@ onMounted(async () => {
   try {
     // 使用 Vite 的 import.meta.glob 动态加载 CSV 文件
     console.log('Starting onMounted');
-    // 动态加载 /public/SQK-RNA*/*.csv 文件
-    const publicPath = import.meta.env.DEV ? '/public' : '';
-    const modules = import.meta.glob('/public/SQK-RNA*/*.csv', { as: 'raw', eager: true });
-    const availableFiles = Object.keys(modules).map(file => file.replace('/public/', ''));
+    const modules = import.meta.glob('/public/*.csv', { as: 'raw', eager: true });
+    const availableFiles = Object.keys(modules).map(file => file.split('/').pop());
+    console.log('Available CSV files:', availableFiles);
 
-    // 提取 Kit 文件夹（SQK-RNA*）
-    const kits = [...new Set(availableFiles.map(file => file.split('/')[0]))]
-      .filter(kit => kit.startsWith('SQK-RNA'))
-      .sort();
-    kitOptions.value = kits;
-    selectedKit.value = kits[0] || null;
-    console.log('Available kits:', kits);
+    // Sort files based on preferredCsvOrder, with unspecified files appended alphabetically
+    const orderedFiles = [
+      ...preferredCsvOrder.value.filter(file => availableFiles.includes(file)),
+      ...availableFiles
+        .filter(file => !preferredCsvOrder.value.includes(file))
+        .sort((a, b) => a.localeCompare(b))
+    ];
+    csvFiles.value = orderedFiles;
+    selectedCsv.value = csvFiles.value[0] || null; // 默认选中第一个文件
+    console.log('Ordered CSV files:', csvFiles.value);
 
-    if (!selectedKit.value) {
-      throw new Error('No SQK-RNA* folders found in public/');
+    if (!selectedCsv.value) {
+      throw new Error('No CSV files found in public/');
     }
 
-    // 初始化 CSV 文件列表
-    updateCsvFiles();
-
-    // 缓存所有 CSV 文件数据
-    for (const file of availableFiles) {
-      csvData.value[file] = csvToJson(modules[`${publicPath}/${file}`]);
+    // 缓存所有CSV文件数据
+    for (const file of csvFiles.value) {
+      csvData.value[file] = csvToJson(modules[`/public/${file}`]);
     }
 
-    // 加载初始 CSV 数据
-    loadCsvData(selectedCsv.value);
+    const initialCsv = selectedCsv.value;
+    const { labels: _lbls, data: modelData } = csvData.value[initialCsv] || { labels: [], data: {} };
+    const entries = Object.entries(modelData).filter(([name]) => !name.includes('Max') && !name.includes('Min'));
+    const colors = generateColors(entries.length);
+
+    labels.value = _lbls;
+    datasets.value = entries.map(([name, values], i) => ({
+      label: name,
+      data: values,
+      borderColor: colors[i],
+      backgroundColor: colors[i].replace('hsl', 'hsla').replace(')', ', 0.2)'),
+      pointBackgroundColor: colors[i],
+      borderWidth: borderWidth.value,
+      pointRadius: pointRadius.value,
+      pointHoverRadius: pointHoverRadius.value,
+      hoverBorderWidth: hoverBorderWidth.value,
+      fill: true,
+      pointHitRadius: 10,
+      originalBorderColor: colors[i],
+      originalBackgroundColor: colors[i].replace('hsl', 'hsla').replace(')', ', 0.2)')
+    }));
+    modelNames.value = entries.map(([name]) => name);
+    // selectedModels.value = []
+    // ready.value = true
+    selectedModels.value = modelNames.value; // 默认全选 2025-07-12 17:40:16
+
+    console.log('Data loaded for', initialCsv, { labels: _lbls, datasets: entries });
 
     preloadImages(labelImageMap.value);
     // console.log('labelImageMap.value: ', labelImageMap.value)
@@ -328,94 +282,41 @@ onMounted(async () => {
   }
 });
 
-/* 更新 CSV 文件列表（基于选中的 Kit） */
-function updateCsvFiles() {
-  const publicPath = import.meta.env.DEV ? '/public' : '';
-  const modules = import.meta.glob('/public/SQK-RNA*/*.csv', { as: 'raw', eager: true });
-  const availableFiles = Object.keys(modules).map(file => file.replace('/public/', ''));
-  const kitFiles = availableFiles
-    .filter(file => file.startsWith(`${selectedKit.value}/`))
-    .map(file => file.split('/')[1])
-    .sort((a, b) => {
-      const indexA = preferredCsvOrder.value.indexOf(a);
-      const indexB = preferredCsvOrder.value.indexOf(b);
-      if (indexA === -1 && indexB === -1) return a.localeCompare(b);
-      if (indexA === -1) return 1;
-      if (indexB === -1) return -1;
-      return indexA - indexB;
-    });
-  csvFiles.value = kitFiles;
-  selectedCsv.value = kitFiles[0] || null;
-  console.log('CSV files for', selectedKit.value, ':', kitFiles);
-}
-
-/* 加载 CSV 数据并按总和排序 */
-function loadCsvData(csvFile) {
-  if (!csvFile) return;
-  const filePath = `${selectedKit.value}/${csvFile}`;
-  if (!csvData.value[filePath]) {
-    throw new Error(`Data for ${filePath} not found in cache`);
-    }
-  const { labels: _lbls, data: modelData, sortData } = csvData.value[filePath];
-
-  // 计算每个模型的指标总和（NA 视为 0）
-  const modelSums = Object.entries(sortData)
-    .filter(([name]) => !name.includes('Max') && !name.includes('Min'))
-    .map(([name, values]) => ({
-      name,
-      sum: values.reduce((acc, val) => acc + val, 0)
-    }))
-    .sort((a, b) => b.sum - a.sum); // 降序排序
-
-  const sortedModelNames = modelSums.map(({ name }) => name);
-  const colors = generateColors(sortedModelNames.length, sortedModelNames);
-
-  labels.value = _lbls;
-  datasets.value = sortedModelNames.map((name, i) => ({
-    label: name,
-    data: modelData[name], // 使用原始数据（NA 保持为 null）
-    borderColor: colors[i],
-    backgroundColor: colors[i].replace('hsl', 'hsla').replace(')', ', 0.2)'),
-    pointBackgroundColor: colors[i],
-    borderWidth: borderWidth.value,
-    pointRadius: pointRadius.value,
-    pointHoverRadius: pointHoverRadius.value,
-    hoverBorderWidth: hoverBorderWidth.value,
-    fill: true,
-    pointHitRadius: 10,
-    originalBorderColor: colors[i],
-    originalBackgroundColor: colors[i].replace('hsl', 'hsla').replace(')', ', 0.2)')
-  }));
-  modelNames.value = sortedModelNames;
-  selectedModels.value = sortedModelNames;
-  console.log('Data loaded for', filePath, { labels: _lbls, datasets: sortedModelNames, sums: modelSums });
-}
-
-/* 监听 Kit 切换 */
-watch(selectedKit, () => {
-  try {
-    errorMessage.value = null;
-    ready.value = false;
-    updateCsvFiles();
-    loadCsvData(selectedCsv.value);
-    preloadImages(labelImageMap.value);
-    ready.value = true;
-    if (chartRef.value?.chart) {
-      chartRef.value.chart.update();
-    }
-  } catch (error) {
-    errorMessage.value = `Failed to load kit ${selectedKit.value}: ${error.message}`;
-    console.error('Error loading kit:', error);
-    ready.value = true;
-  }
-});
-
-/* 监听 CSV 切换 */
+/* 监听 CSV(modification) 切换 */
 watch(selectedCsv, (newCsv) => {
   try {
     errorMessage.value = null;
     ready.value = false;
-    loadCsvData(newCsv);
+
+    if (!csvData.value[newCsv]) {
+      throw new Error(`Data for ${newCsv} not found in cache`);
+    }
+
+    const { labels: _lbls, data: modelData } = csvData.value[newCsv];
+    const entries = Object.entries(modelData).filter(([name]) => !name.includes('Max') && !name.includes('Min'));
+    const colors = generateColors(entries.length);
+
+    labels.value = _lbls;
+    datasets.value = entries.map(([name, values], i) => ({
+      label: name,
+      data: values,
+      borderColor: colors[i],
+      backgroundColor: colors[i].replace('hsl', 'hsla').replace(')', ', 0.2)'),
+      pointBackgroundColor: colors[i],
+      borderWidth: borderWidth.value,
+      pointRadius: pointRadius.value,
+      pointHoverRadius: pointHoverRadius.value,
+      hoverBorderWidth: hoverBorderWidth.value,
+      fill: true,
+      pointHitRadius: 10,
+      originalBorderColor: colors[i],
+      originalBackgroundColor: colors[i].replace('hsl', 'hsla').replace(')', ', 0.2)')
+    }));
+    modelNames.value = entries.map(([name]) => name);
+    selectedModels.value = modelNames.value;
+
+    console.log('Data loaded for', newCsv, { labels: _lbls, datasets: entries });
+
     preloadImages(labelImageMap.value);
     console.log('Label image map:', labelImageMap.value);
 
@@ -443,25 +344,24 @@ onUnmounted(() => {
 
 /* ---------- 8. 计算图表数据（随CSV和模型选择变化） -------- */
 const chartData = computed(() => {
-  if (!selectedCsv.value || !selectedKit.value || !csvData.value[`${selectedKit.value}/${selectedCsv.value}`]) {
+  if (!selectedCsv.value || !csvData.value[selectedCsv.value]) {
     console.warn('No data for chartData');
     return { labels: [], datasets: [] };
   }
 
   // 获取当前选中的CSV文件数据
-  const { labels: _lbls, data: modelData } = csvData.value[`${selectedKit.value}/${selectedCsv.value}`];
-  // const { labels: _lbls, data: modelData } = csvData.value[selectedCsv.value];
+  const { labels: _lbls, data: modelData } = csvData.value[selectedCsv.value];
   const entries = Object.entries(modelData).filter(([name]) => !name.includes('Max') && !name.includes('Min'));
-  // 保持 modelNames 的排序顺序
-  const colors = generateColors(modelNames.value.length, modelNames.value);
+  const colors = generateColors(entries.length);
 
-  // 更新 labels 和 datasets, 且避免重复更新 labels.value
+  // 更新 labels 和 datasets
+  // 避免重复更新 labels.value
   if (JSON.stringify(labels.value) !== JSON.stringify(_lbls)) {
     labels.value = _lbls;
   }
-  datasets.value = modelNames.value.map((name, i) => ({
+  datasets.value = entries.map(([name, values], i) => ({
     label: name,
-    data: modelData[name],
+    data: values,
     borderColor: colors[i],
     backgroundColor: colors[i].replace('hsl', 'hsla').replace(')', ', 0.2)'),
     pointBackgroundColor: colors[i],
@@ -474,13 +374,13 @@ const chartData = computed(() => {
     originalBorderColor: colors[i],
     originalBackgroundColor: colors[i].replace('hsl', 'hsla').replace(')', ', 0.2)')
   }));
-  // modelNames.value = entries.map(([name]) => name);
+  modelNames.value = entries.map(([name]) => name);
   // 过滤选中的模型
   // 固定第一个标签，剩余标签逆时针反转
   const chartLabels = labels.value.length > 0
     ? [labels.value[0], ...labels.value.slice(1).reverse()]
     : [];
-  console.log('chartLabels:', chartLabels, 'original:', [...labels.value]);
+  console.log('chartLabels: ', chartLabels, 'original: ', [...labels.value]);
   const selectedDatasets = datasets.value
     .filter(ds => selectedModels.value.includes(ds.label))
     .map((ds, i) => {
@@ -674,19 +574,18 @@ const isAllModelsSelected = computed(() =>
   selectedModels.value.length === modelNames.value.length
 );
 
-const isOneModelSelected = computed(() =>
-  selectedModels.value.length > 0
-);
-
 function toggleAllModels() {
-  // selectedModels.value = isAllModelsSelected.value ? [] : [...modelNames.value];
-  selectedModels.value = isOneModelSelected.value ? [] : [...modelNames.value];
+  selectedModels.value = isAllModelsSelected.value ? [] : [...modelNames.value];
 }
 
 /* ---------- 11. 注册自定义插件 -------- */
 ChartJS.register({
   id: 'pointLabelImages',
   afterDraw: chartOptions.value.plugins.pointLabelImages.afterDraw
+  // }, {
+  //   id: 'lineHoverPlugin',
+  //   beforeEvent: chartOptions.plugins.lineHoverPlugin.beforeEvent
+  // //加上这段使得悬停无法高亮, 悬停并点击才能高亮
 }, {
   id: 'background',
   beforeDraw: chartOptions.value.plugins.background.beforeDraw
@@ -726,7 +625,9 @@ function pointToLineDistance(px, py, x1, y1, x2, y2) {
 
 .chart-box {
   width: v-bind(chartWidth);
+  /* 图表宽度 */
   height: v-bind(chartHeight);
+  /* 图表高度 */
   position: relative;
 }
 
@@ -781,7 +682,6 @@ function pointToLineDistance(px, py, x1, y1, x2, y2) {
 }
 
 .checkbox {
-  --model-color: v-bind('modelColors[name] || "#585858"');
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -792,10 +692,9 @@ function pointToLineDistance(px, py, x1, y1, x2, y2) {
   border: 5px solid transparent;
   border-radius: 4px;
   position: relative;
-  color: var(--model-color);
 }
 
-.checkbox input[type="checkbox"], .checkbox input[type="radio"] {
+.checkbox input[type="checkbox"] {
   position: absolute;
   opacity: 0;
   width: 0;
@@ -806,17 +705,23 @@ function pointToLineDistance(px, py, x1, y1, x2, y2) {
 }
 
 .checkbox.selected {
-  border-color: #000000;
-  color: #ffffff;
-  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
-  background-color: inherit;
+  border-color: inherit; /* Uses the borderColor from :style */
+  background-color: rgba(0, 0, 0, 0.05);
 }
 
-.checkbox .model-name {
-  /* color: #ffffff; */
-  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
-}
-
+/* .checkbox.selected::before {
+  content: '✓';
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  font-size: 10px;
+  line-height: 12px;
+  text-align: center;
+  color: white;
+  background-color: v-bind('modelColors[name] || "#ccc"');
+  border-radius: 2px;
+  margin-right: 0.3rem;
+} */
 
 .model-name {
   display: block;
@@ -848,8 +753,7 @@ function pointToLineDistance(px, py, x1, y1, x2, y2) {
   .container {
     /* Dark mode background */
     /* background-color: #1a1a1a; */
-    /* color: #e0e0e0; Light text for contrast */
-    color: #000000; /* Light text for contrast */
+    color: #e0e0e0; /* Light text for contrast */
   }
 
   .filters fieldset {
@@ -857,18 +761,15 @@ function pointToLineDistance(px, py, x1, y1, x2, y2) {
   }
 
   .filters legend {
-    /* color: #e0e0e0; Light text for legend */
-    color: #000000; /* Light text for contrast */
+    color: #e0e0e0; /* Light text for legend */
   }
 
   .checkbox {
-    --model-color: v-bind('modelColors[name] || "#585858"');
-    color: var(--model-color);
+    color: #e0e0e0; /* Light text for labels */
   }
 
   .checkbox.selected {
-    color: #ffffff;
-    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+    background-color: rgba(255, 255, 255, 0.1); /* Slightly lighter background for selected */
   }
 
   .toggle-btn {
@@ -936,6 +837,13 @@ function pointToLineDistance(px, py, x1, y1, x2, y2) {
     border-width: 1px;
   }
 
+  .checkbox.selected::before {
+    width: 10px;
+    height: 10px;
+    font-size: 8px;
+    line-height: 10px;
+  }
+
   .model-name {
     max-width: 120px;
   }
@@ -962,13 +870,11 @@ function pointToLineDistance(px, py, x1, y1, x2, y2) {
     }
 
     .checkbox {
-      --model-color: v-bind('modelColors[name] || "#ccc"');
-      color: var(--model-color);
+      color: #e0e0e0;
     }
 
     .checkbox.selected {
-      color: #ffffff;
-      text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+      background-color: rgba(255, 255, 255, 0.1);
     }
 
     .toggle-btn {
